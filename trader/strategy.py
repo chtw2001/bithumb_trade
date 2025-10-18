@@ -15,6 +15,7 @@ from trader.utils import (
 )
 
 MIN_ORDER_KRW_DEFAULT = 5000.0
+BASE_AMOUNT = 5000.0
 VOLUME_DECIMALS = 8
 
 
@@ -62,7 +63,7 @@ def perform_buy(bithumb: Bithumb, ticker: str) -> None:
     coin_avail_for_sell = float(chance.get('ask_account', {}).get('balance', 0.0))
 
     # --- 금액 결정 (선형 스케일링) ---
-    base_amount = 5000.0
+    base_amount = BASE_AMOUNT
     amount = base_amount
 
     # 보유 중(평단>0)일 때만 스케일링. 첫 매수(보유 없음)는 5,000 고정.
@@ -120,10 +121,10 @@ def perform_buy(bithumb: Bithumb, ticker: str) -> None:
             
             # 체결된 금액과 가격 계산
             paid_total = float(order_result.get("paid_fee", 0)) + float(order_result.get("price", 0))
-            executed_volume = float(order_result.get("volume", 0))
-            avg_price = paid_total / executed_volume if executed_volume else 0
+            cur_price = retry(lambda: get_current_price(ticker))
+            volume = round(paid_total / max(cur_price, 1e-12), VOLUME_DECIMALS)
 
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 체결 완료: 총 금액 {paid_total:.2f} KRW, 평균 가격 {avg_price:.2f} KRW")
+            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 체결 완료: 총 금액 {paid_total:.2f} KRW, 가격 {cur_price:.2f} KRW, vol={volume}")
         else:
             print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 매수 체결 완료: uuid={uuid}")
     except Exception as e:
@@ -179,7 +180,15 @@ def perform_sell(bithumb: Bithumb, ticker: str, take_profit_pct: float) -> None:
 
 def trade_once(bithumb: Bithumb, ticker: str, take_profit_pct: float) -> None:
     """한 번의 라운드(한 시간 슬롯)에서 매도→매수 순서로 실행."""
-    print(f"==== {time.strftime('%Y-%m-%d %H:%M:%S')} {ticker} 라운드 시작 ====")
+    print(f"==== {time.strftime('%Y-%m-%d %H:%M:%S')} {ticker} ====")
     perform_sell(bithumb, ticker, take_profit_pct)
     perform_buy(bithumb, ticker)
-    print(f"==== {time.strftime('%Y-%m-%d %H:%M:%S')} {ticker} 라운드 종료 ====")
+    print(f"==== {time.strftime('%Y-%m-%d %H:%M:%S')} {ticker} ====\n")
+
+    # 평단가, 현재가, 수익률 출력
+    chance = _fetch_chance_safe(bithumb, ticker)
+    avg_buy_price = float(chance.get('ask_account', {}).get('avg_buy_price', 0.0))
+    coin_balance = float(chance.get('ask_account', {}).get('balance', 0.0))
+    cur_price = retry(lambda: get_current_price(ticker))
+    pnl_pct = effective_pnl_pct(cur_price, avg_buy_price, FEE_RATE)
+    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Summary - 평단가={avg_buy_price:.2f}, 현재가={cur_price:.2f}, 수익(수수료 반영)={pnl_pct:.3f}%, 보유량={coin_balance}\n\n")
