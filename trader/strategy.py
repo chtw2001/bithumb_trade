@@ -58,21 +58,36 @@ def perform_buy(bithumb: Bithumb, ticker: str) -> None:
     min_total = float(chance.get('bid_account', {}).get('min_total', MIN_ORDER_KRW_DEFAULT))
     krw_avail = float(chance.get('bid_account', {}).get('balance', 0.0))  # 사용가능 KRW
 
-    coin_symbol = ticker.split('-')[1]
     avg_buy_price = float(chance.get('ask_account', {}).get('avg_buy_price', 0.0))
     coin_avail_for_sell = float(chance.get('ask_account', {}).get('balance', 0.0))
 
-    if krw_avail < min_total:
-        print(f"[{now}] 매수 스킵: KRW 잔고 부족 (avail={krw_avail:.0f}, min={min_total:.0f})")
-        return
+    # --- 금액 결정 (선형 스케일링) ---
+    base_amount = 5000.0
+    amount = base_amount
 
-    # 금액 결정
-    amount = 5000.0
-    if coin_avail_for_sell > 0:
-        if avg_buy_price < cur_price:
-            amount = 10000.0
+    # 보유 중(평단>0)일 때만 스케일링. 첫 매수(보유 없음)는 5,000 고정.
+    if coin_avail_for_sell > 0 and avg_buy_price > 0:
+        if cur_price < avg_buy_price:
+            # diff_pct: (현재가-평단)/평단 * 100  → 0~5% 구간을 1.0~2.0배로 스케일
+            diff_pct = (avg_buy_price - cur_price) / avg_buy_price * 100.0
+            capped = max(0.0, min(diff_pct, 5.0))  # 0 미만 → 0, 5% 초과 → 5로 캡
+            multiplier = 1.0 + (capped / 5.0)      # 0%→1.0, 5%→2.0
+            amount = base_amount * multiplier
         else:
-            amount = 5000.0
+            amount = base_amount  # 현재가 >= 평단: 5,000원 유지
+    else:
+        amount = base_amount     # 보유 없음: 5,000원 고정
+
+    # 정수 원 단위 보정 + 최소/가용 잔고 반영
+    amount = float(int(round(amount)))
+    if amount < min_total:
+        amount = float(int(min_total))
+    if amount > krw_avail:
+        print(f"[{now}] 매수 금액 보정: 가용 KRW 초과 → {amount:.0f} → {krw_avail:.0f}")
+        amount = float(int(krw_avail))
+        if amount < min_total:
+            print(f"[{now}] 매수 스킵: 보정 후에도 최소금액 미달 (amount={amount:.0f} < min={min_total:.0f})")
+            return
 
     # 지정가 가격: 현재가에서 한 틱 낮춤(내림 처리)
     tick = get_order_unit(cur_price)
@@ -86,12 +101,29 @@ def perform_buy(bithumb: Bithumb, ticker: str) -> None:
     try:
         order = retry(lambda: bithumb.buy_limit_order(ticker, limit_price, volume))
         uuid = order.get('uuid')
-        print(f"[{now}] 지정가 매수 주문 제출: {ticker} price={limit_price} vol={volume} uuid={uuid}")
+        print(f"[{now}] 지정가 매수 주문 제출: {ticker} price={limit_price} amount={amount} vol={volume} uuid={uuid}")
         time.sleep(300)  # 5분 대기
         if not is_order_fully_done(bithumb, uuid):
+            # retry(lambda: bithumb.cancel_order(uuid))
+            # print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 미체결 → 시장가 매수 재주문: {amount}")
+            # retry(lambda: bithumb.buy_market_order(ticker, amount))
             retry(lambda: bithumb.cancel_order(uuid))
             print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 미체결 → 시장가 매수 재주문: {amount}")
-            retry(lambda: bithumb.buy_market_order(ticker, amount))
+
+            # 시장가 매수 주문 실행
+            order_response = retry(lambda: bithumb.buy_market_order(ticker, amount))
+            new_uuid = order_response.get("uuid")
+
+            # 체결된 주문 정보 조회
+            time.sleep(10)  # 체결 대기 (필요시 조정)
+            order_result = bithumb.get_order(new_uuid)
+            
+            # 체결된 금액과 가격 계산
+            paid_total = float(order_result.get("paid_fee", 0)) + float(order_result.get("price", 0))
+            executed_volume = float(order_result.get("volume", 0))
+            avg_price = paid_total / executed_volume if executed_volume else 0
+
+            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 체결 완료: 총 금액 {paid_total:.2f} KRW, 평균 가격 {avg_price:.2f} KRW")
         else:
             print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 매수 체결 완료: uuid={uuid}")
     except Exception as e:
