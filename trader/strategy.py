@@ -99,13 +99,20 @@ def perform_buy(bithumb: Bithumb, ticker: str) -> None:
     volume = round(amount / max(limit_price, 1e-12), VOLUME_DECIMALS)
     total = limit_price * volume
 
-    # 총 주문 금액이 실제 min_total보다 작은 경우 보정
-    actual_total = limit_price * volume
-    if actual_total < min_total:
+   # 최소 금액 미달 시 틱 내림 취소
+    if total < min_total:
         print(f"[{now}] limit_price 총액 {total:.2f} < 최소 {min_total:.2f} → 현재가 기준 재계산")
         limit_price = cur_price
         volume = round(amount / limit_price, VOLUME_DECIMALS)
         total = limit_price * volume
+
+    # 🚨 float 오차 및 빗썸 서버 내림오차 방지를 위한 추가 여유 보정
+    if total <= min_total:
+        # +10원 보정 (절대 min_total보다 작지 않게)
+        safe_total = min_total + 10.0
+        volume = round(safe_total / limit_price, VOLUME_DECIMALS)
+        total = limit_price * volume
+        print(f"[{now}] 안전 보정 적용: price={limit_price}, volume={volume}, total={total:.2f}")
 
     # 지정가 주문 → 5분 대기 → 미체결 시 취소 후 시장가
     try:
