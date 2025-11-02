@@ -2507,3 +2507,5 @@ nohup: ignoring input
 [2025-11-02 18:57:10] Summary - 평단가=5873757.00, 현재가=5762000.00, 수익(수수료 반영)=-1.981%, 보유량=0.24680101
 
 
+==== 2025-11-02 19:51:54 KRW-ETH ====
+[FATAL] 라운드 에러: HTTPSConnectionPool(host='api.bithumb.com', port=443): Max retries exceeded with url: /v1/ticker?markets=KRW-ETH (Caused by NewConnectionError('<urllib3.connection.VerifiedHTTPSConnection object at 0x7f26c2b302e0>: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution'))
