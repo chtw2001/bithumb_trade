@@ -2509,3 +2509,12 @@ nohup: ignoring input
 
 ==== 2025-11-02 19:51:54 KRW-ETH ====
 [FATAL] 라운드 에러: HTTPSConnectionPool(host='api.bithumb.com', port=443): Max retries exceeded with url: /v1/ticker?markets=KRW-ETH (Caused by NewConnectionError('<urllib3.connection.VerifiedHTTPSConnection object at 0x7f26c2b302e0>: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution'))
+==== 2025-11-02 20:51:54 KRW-ETH ====
+[2025-11-02 20:51:54] 매도 스킵: 목표 미충족 (pnl=-1.624%, target=5.000%)
+[2025-11-02 20:51:54] 지정가 매수 주문 제출: KRW-ETH price=5782000 amount=6545.0 vol=0.00113196 uuid=C0102000001369438699
+[2025-11-02 20:56:55] 매수 체결 완료: uuid=C0102000001369438699
+==== 2025-11-02 20:56:55 KRW-ETH ====
+
+[2025-11-02 20:56:55] Summary - 평단가=5873339.00, 현재가=5778000.00, 수익(수수료 반영)=-1.702%, 보유량=0.24793297
+
+
