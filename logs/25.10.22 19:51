@@ -5218,3 +5218,5 @@ nohup: ignoring input
 
 ==== 2025-11-15 07:51:54 KRW-ETH ====
 [FATAL] 라운드 에러: HTTPSConnectionPool(host='api.bithumb.com', port=443): Max retries exceeded with url: /v1/ticker?markets=KRW-ETH (Caused by NewConnectionError('<urllib3.connection.VerifiedHTTPSConnection object at 0x7f26c2be0d90>: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution'))
+==== 2025-11-15 08:51:54 KRW-ETH ====
+[FATAL] 라운드 에러: HTTPSConnectionPool(host='api.bithumb.com', port=443): Max retries exceeded with url: /v1/ticker?markets=KRW-ETH (Caused by NewConnectionError('<urllib3.connection.VerifiedHTTPSConnection object at 0x7f26c2be0490>: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution'))
